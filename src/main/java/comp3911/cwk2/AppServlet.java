@@ -6,7 +6,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,8 +26,11 @@ import freemarker.template.TemplateExceptionHandler;
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
-  private static final String AUTH_QUERY = "select * from user where username='%s' and password='%s'";
-  private static final String SEARCH_QUERY = "select * from patient where surname like '%s'";
+  private static final String AUTH_QUERY = "select * from user where username=? and password=?";
+  private static final String SEARCH_QUERY = "select * from patient where surname like ?";
+
+  private PreparedStatement authStmt;
+  private PreparedStatement srchStmt;
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
@@ -36,6 +39,14 @@ public class AppServlet extends HttpServlet {
   public void init() throws ServletException {
     configureTemplateEngine();
     connectToDatabase();
+
+    try {
+        authStmt = database.prepareStatement(AUTH_QUERY);
+        srchStmt = database.prepareStatement(SEARCH_QUERY);
+    } catch (SQLException e) {
+        System.err.println("Failed to prepare statment");
+        System.exit(1);
+    }
   }
 
   private void configureTemplateEngine() throws ServletException {
@@ -103,19 +114,20 @@ public class AppServlet extends HttpServlet {
   }
 
   private boolean authenticated(String username, String password) throws SQLException {
-    String query = String.format(AUTH_QUERY, username, password);
-    try (Statement stmt = database.createStatement()) {
-      ResultSet results = stmt.executeQuery(query);
-      return results.next();
-    }
+    authStmt.setString(1, username);
+    authStmt.setString(2, password);
+    ResultSet results = authStmt.executeQuery();
+
+    return results.next();
   }
 
   private List<Record> searchResults(String surname) throws SQLException {
     List<Record> records = new ArrayList<>();
-    String query = String.format(SEARCH_QUERY, surname);
-    try (Statement stmt = database.createStatement()) {
-      ResultSet results = stmt.executeQuery(query);
-      while (results.next()) {
+
+    srchStmt.setString(1, surname);
+    ResultSet results = srchStmt.executeQuery();
+
+    while (results.next()) {
         Record rec = new Record();
         rec.setSurname(results.getString(2));
         rec.setForename(results.getString(3));
@@ -125,7 +137,6 @@ public class AppServlet extends HttpServlet {
         rec.setDiagnosis(results.getString(7));
         records.add(rec);
       }
-    }
     return records;
   }
 }
