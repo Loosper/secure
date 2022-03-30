@@ -29,6 +29,9 @@
         \paragraph{Stored XSS} - patient data is formatted unaltered from the
         database into the webpage allowing HTML in fields to render
 
+        \paragraph{Multiple login with the same credential allowed within the same browser} - The search feature could be used with the same credentials within the same browser simultaneously.
+
+
         \subsection{SQL injection in detail}
 
             One of the easiest flaws to exploit is an SQL injection. It is very
@@ -72,8 +75,13 @@
             The injection in the authentication fields was found and exploited
             the same way.
 
-        \subsection{Flaw 2 in detail}
-            % nature, how was discovered, with examples + evidence
+            \subsection{Potential for Man in the middle attack (MITM)
+            The vulnerbility was discovered by testing to see if the application was
+            able to perform the search function with the same account credentials while there was another session running concurrently, which waswas successful.
+
+            This shows the potential for an attacker to perform MITM attack by hijacking the session since there is the absence of SSL or session ID, and also given that form field of the password is sent in plaintext,the attacker would be able to easily impersonate a legitimate user and perform undesired actions by intercepting the connection between the user and application server.
+
+            The threat is further heightened as there is also no session timeout  hence, once the attacker successfully manages to capture the session there is little to no safeguards in place.
 
     \section{Fixes implemented}
         % Write a short (maximum of one A4 page) summary of the changes that
@@ -98,5 +106,10 @@
             a parameter to the precompiled qeuery separately. Further, since
             the statement is precompiled, there is no way for a text based
             attack (but not others like the compiled format).
+
+
+        \subsection{MITM attack}
+
+          The fix for the vulnerbility after considering various options such as  creating a token/ session ID to using SSL , the best option sought out was to store the passwords as hashes in the database using SHA256 which is achieved using Java's Messagedigest class that performs the hashing on the passwords that are to be stored. As this would firstly eliminate the issue of easy compromise due to being stored in plaintext. Secondly, by matching against using a hash function for the password it would provide another layer of security against attackers as they would need to figure out the hash function before being able to get the password.
 
 \end{document}
