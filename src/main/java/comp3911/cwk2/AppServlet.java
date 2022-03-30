@@ -8,9 +8,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.PreparedStatement;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -34,6 +37,7 @@ public class AppServlet extends HttpServlet {
 
   private final Configuration fm = new Configuration(Configuration.VERSION_2_3_28);
   private Connection database;
+  private MessageDigest md;
 
   @Override
   public void init() throws ServletException {
@@ -47,6 +51,10 @@ public class AppServlet extends HttpServlet {
         System.err.println("Failed to prepare statment");
         System.exit(1);
     }
+    try {
+        md = MessageDigest.getInstance("SHA-256");
+    // quite frankly will never happen
+    } catch (NoSuchAlgorithmException e) {}
   }
 
   private void configureTemplateEngine() throws ServletException {
@@ -113,9 +121,18 @@ public class AppServlet extends HttpServlet {
     }
   }
 
+  String passHash(String pass) {
+    md.update(pass.getBytes());
+    byte[] bytes = md.digest();
+
+    String hex = Base64.getEncoder().encodeToString(bytes);
+
+    return hex;
+  }
+
   private boolean authenticated(String username, String password) throws SQLException {
     authStmt.setString(1, username);
-    authStmt.setString(2, password);
+    authStmt.setString(2, passHash(password));
     ResultSet results = authStmt.executeQuery();
 
     return results.next();
