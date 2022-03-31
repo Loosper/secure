@@ -29,7 +29,7 @@ import freemarker.template.TemplateExceptionHandler;
 public class AppServlet extends HttpServlet {
 
   private static final String CONNECTION_URL = "jdbc:sqlite:db.sqlite3";
-  private static final String AUTH_QUERY = "select * from user where username=? and password=?";
+  private static final String AUTH_QUERY = "select * from user where username=?";
   private static final String SEARCH_QUERY = "select * from patient where surname like ?";
 
   private PreparedStatement authStmt;
@@ -132,10 +132,13 @@ public class AppServlet extends HttpServlet {
 
   private boolean authenticated(String username, String password) throws SQLException {
     authStmt.setString(1, username);
-    authStmt.setString(2, passHash(password));
     ResultSet results = authStmt.executeQuery();
 
-    return results.next();
+    String hash = results.getString(4);
+    String salt = results.getString(5);
+    String newHash = passHash(password + salt);
+
+    return hash.equals(newHash);
   }
 
   private List<Record> searchResults(String surname) throws SQLException {
