@@ -29,7 +29,11 @@
         \paragraph{Stored XSS} - patient data is formatted unaltered from the
         database into the webpage allowing HTML in fields to render
 
-        \paragraph{Multiple login with the same credential allowed within the same browser} - The search feature could be used with the same credentials within the same browser simultaneously.
+        \paragraph{Multiple login on same browser} - Lack of token requires
+        repeated authentication within the same browser with same credentials
+
+        \paragraph{Man in the middle} - no assurance from either server or
+        client that they are communicating directly
 
 
         \subsection{SQL injection in detail}
@@ -75,13 +79,43 @@
             The injection in the authentication fields was found and exploited
             the same way.
 
-            \subsection{Potential for Man in the middle attack (MITM)
-            The vulnerbility was discovered by testing to see if the application was
-            able to perform the search function with the same account credentials while there was another session running concurrently, which waswas successful.
+        \subsection{Passwords in plaintext}
+            % under which you should describe the nature of the flaw and how
+            % you discovered it, providing examples or evidence where appropriate
 
-            This shows the potential for an attacker to perform MITM attack by hijacking the session since there is the absence of SSL or session ID, and also given that form field of the password is sent in plaintext,the attacker would be able to easily impersonate a legitimate user and perform undesired actions by intercepting the connection between the user and application server.
+            Storing passwords in plaintext is a vulnerability with very low
+            visibility but high severity. External security validation tests
+            will not detect it as a moderately secure application will not
+            expose any details about the choice of data storage to the outside
+            world. As this is considered an implementation detail, password
+            storage policies are not normally made public either. They are also
+            not considered as a feature by normal user and therefore not
+            advertised. It may only be of interest to tech focused people but
+            even then is rarely publicied. Due to most applications being
+            closed source, indedepndent validation of the storage mechanism is
+            not possible either.
 
-            The threat is further heightened as there is also no session timeout  hence, once the attacker successfully manages to capture the session there is little to no safeguards in place.
+            Plaintext storage is of high severity in the event of a data
+            breach. When this happens, users do not only have their account
+            with the breached service compromised. Instead, all accounts that
+            share a password with that service are at high risk of authorised
+            access. Users tend to frequently reuse passwords despite the best
+            advice of industry proffesionals, which is most problematic in the
+            event of data breaches. Changing the password in all instances
+            where the password is shared is bound to leave some out. And even
+            the best defences against data breaches occasionally fail so
+            mitigating their impact is of utmost importance. Further, since
+            password dumps are a frequent occurance, password dictionaries are
+            readily available and releasing more samples only furthers the
+            reduction of overall password effectiveness.
+
+            The flaw was discovered by manually inspecting the database and the
+            servlet souce code. Performing a \texttt{select * from user;} quer
+            yields a full list of registered users and their plaintext
+            passwords. Further, the source code performs filtering based on the
+            plain password without any transformations. For example, user "Mary
+            Jones" with a username of "mjones" has the password "marymary".
+
 
     \section{Fixes implemented}
         % Write a short (maximum of one A4 page) summary of the changes that
@@ -96,7 +130,7 @@
             strings directly, the user input is given to the prepared statement
             with \texttt{setString} and executed and handled as before. This
             has to be done in both the \texttt{authenticated()} and
-            \texttt{searchResults()}} methods.
+            \texttt{searchResults()} methods.
 
             This fixes the vulnerability because the unvalidated user input is
             no longer formatted into the query. Instead, the query is sent to
@@ -108,8 +142,24 @@
             attack (but not others like the compiled format).
 
 
-        \subsection{MITM attack}
+        \subsection{Hashed passwords}
 
-          The fix for the vulnerbility after considering various options such as  creating a token/ session ID to using SSL , the best option sought out was to store the passwords as hashes in the database using SHA256 which is achieved using Java's Messagedigest class that performs the hashing on the passwords that are to be stored. As this would firstly eliminate the issue of easy compromise due to being stored in plaintext. Secondly, by matching against using a hash function for the password it would provide another layer of security against attackers as they would need to figure out the hash function before being able to get the password.
+            Again, the fix is simple - edit the database in place and replace
+            the plaintext passwords with their base64 encoded SHA-256 digests,
+            extending the size of the password field in the proces (to 44
+            symbols) and adding a small salt field. Then, implement a simple
+            \texttt{passHash()} method to calculate the hash of a string and
+            use it in the \texttt{authenticated()} method to calculate the
+            hashed plaintext password with its salt concatenation. That value
+            is then compared to the hash which is stored in the database.
+
+            This fixes the vulnerability since obtaining a source text for a
+            hash is a very computationally expesive process. This way even if
+            the user reused the password with other services, that plaintext is
+            not know and therefore those services remain secure even in the
+            event of a leak. Furhter, in case the service computes the hash
+            locally and transmits that over the network, the salt value ensures
+            that the leaked hash value is different to that another service
+            might be storing. In effect, this prevents hash dictionary attacks.
 
 \end{document}
